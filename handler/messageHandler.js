@@ -1,12 +1,12 @@
 const moment = require('moment');
 const set = require('../settings');
 const fs = require('fs-extra')
+const config = require('../config.json')
 //const axios = require("axios").default;
 //const Nekos = require('nekos.life');
 //const neko = new Nekos();
-//const sagiri = require('sagiri');
-//const saus = sagiri(config.nao, { results: 5 });
-const config = require('../config.json')
+const sagiri = require('sagiri');
+const saus = sagiri(config.nao, { results: 5 });
 //const parseMilliseconds = require('parse-ms')
 //const toMs = require('ms')
 //const { spawn } = require('child_process')
@@ -159,10 +159,16 @@ module.exports = async (client, message) => {
         console.log(await client.getChatById(from))
         break
 
+      case 'debuggrup':
+        console.log(groupMetadata.participants)
+        const all = groupMetadata.participants.map((member) => `@${member.id.user}`);
+        console.log(all)
+        break
+
       case 'owner':
       case 'contact':
       case 'ownerbot':
-        return await client.reply(from, '_👋 Hai, kalo mau req fitur bisa pc ke *https://wa.me/6285156132721*_', id, true);
+        return await client.reply(from, '👋 Hai, kalo mau req fitur bisa pc ke *https://wa.me/6285156132721*', id, true);
         break;
 
       case 'jodohku':
@@ -234,7 +240,7 @@ english: "en"
         if ( groupMetadata.desc && groupMetadata.desc.includes("#noping") ) 
         { await client.sendText(from, '_*⚠️ Gaboleh spam disini yak*_') } 
         else {
-          await client.sendMentioned(from, `_*Summon*_\n\n${allMembers.join('\n')}\n`, allMembers); }
+          await client.sendMentioned(from, `_*Summon*_\n\n${allMembers.join('\n')}\n`, groupMetadata.participants.map((member) => `${member.id.user}`)); }
         break;
 
       case 'gay':
@@ -341,6 +347,106 @@ english: "en"
             console.log(err)
           })
         break
+
+      case 'ytmp3':
+      case 'musik':
+      case 'music':
+        await client.reply(from, "Fitur ini memerlukan resource yang berat, dimohon untuk tidak menspam command ini", id, true);
+        if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}music <title> / <url>_`, id, true);
+        //if (ytwait == true) return await client.reply(from, '_⚠️ Mohon menunggu command music sebelumnya selesai diupload terlebih dahulu_', id, true);
+        const musicLink2 = await _function.youtube.youtubeMusic(arguments.join(' '));
+        if (!musicLink2) return await client.reply(from, '_⚠️ Pastikan music yang anda inginkan dibawah 10 menit!_', id, true);
+        try {
+            if (musicLink2.result.error == true) return await client.reply(from, `⚠️ Error ! \n\nMessage error : \n${musicLink2.result.message}`,id, true)
+            await client.reply(from, ind.wait() + "\nMusik sedang diupload...", id, true)
+            const mp3url = musicLink2.result.file;
+            const judul = musicLink2.result.title;
+            const thumb = musicLink2.thumbnail;
+            const durasi = musicLink2.duration;
+
+            var menit = Math.floor(durasi / 60);
+            var detik = durasi - menit * 60;
+
+            const caption = `-------[ *Detail musik* ]-------\n\nJudul : ${judul}\nDurasi : ${menit} menit ${detik} detik`
+            await client.sendImage(from, thumb, "thumb.jpg", caption, id)
+            await client.sendPtt(from, mp3url);
+            //await client.reply(from, `⚠️ Error !\nPastikan music yang anda inginkan dibawah 5 menit!\n\nMessage error : \n${musicLink.result.message}`, id, true);
+        } catch (error) {
+          await client.reply(from, "Sepertinya musik tidak bisa di upload, mon maap 🙏\n\nSilahkan cari musik lainnya", id, true);
+          //console.log("music download error " + musicLink);
+          console.log(error.stack);
+        }
+        break;
+
+      
+      case 'ytmp4':
+        await client.reply(from, "Fitur ini memerlukan resource yang berat, dimohon untuk tidak menspam command ini\n\nCommand video ini membutuhkan waktu yang lama pada saat upload, mohon menunggu 3-6 menit", id, true);
+        if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}ytmp4 <title> / <url>_`, id, true);
+        //if (ytwait == true) return await client.reply(from, '_⚠️ Mohon menunggu command music/video sebelumnya selesai diupload terlebih dahulu_', id, true);
+        const videoLink = await _function.youtube.youtubeVideo(arguments.join(' '));
+        if (!videoLink) return await client.reply(from, '_⚠️ Pastikan video yang anda inginkan dibawah 10 menit!_', id, true);
+        try {
+          if (videoLink.result.error == true){
+             return await client.reply(from, `⚠️ Error ! \n\nMessage error : \n${videoLink.result.message}`, id, true);
+          } else {
+            await client.reply(from, ind.wait()+ "\nVideo sedang diupload...", id, true)
+            const mp4url = videoLink.result.file;
+            const judul = videoLink.result.title;
+            const thumb = videoLink.thumbnail;
+            const durasi = videoLink.duration;
+
+            var menit = Math.floor(durasi / 60);
+            var detik = durasi - menit * 60;
+
+            const caption = `-------[ *Detail Video* ]-------\n\nJudul : ${judul}\nDurasi : ${menit} menit ${detik} detik`
+
+            await client.sendImage(from, thumb, "thumb.jpg", caption, id)
+            await client.sendFile(from, mp4url);
+          }
+        } catch (error) {
+          await client.reply(from, "Sepertinya musik tidak bisa di upload, mon maap 🙏\n\nSilahkan cari video lainnya", id, true);
+          //console.log("music download error " + musicLink);
+          console.log(error.stack);
+        }
+        break;
+      
+
+      case 'stickertottext':
+      case 'stickerteks':
+      case 'stikerteks':
+        let teksLink
+        if (arguments.length < 1 && !quotedMsg) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}stikerteks <kalimat>_`, id, true);
+        if (quotedMsg) {
+          let quotmsg = await client.getMessageById(quotedMsgId)
+          let teks = quotmsg.content.trim().split(' ');
+          teks.push(`-${quotmsg.sender.pushname}`)
+          teksLink = _function.tosticker(teks);
+        } else {
+          teksLink = _function.tosticker(arguments);
+        }
+        await client.sendImageAsSticker(from, teksLink);
+        break
+
+      case 'wikipedia':
+      case 'wiki':
+        if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}wiki <keywords>_`, id, true);
+        try {
+          const getWiki = await _function.wiki.wiki(arguments.join(' '));
+          if (getWiki.picUrl === undefined) {
+            await client.sendText(from, getWiki.caption)
+          } else {
+            await client.sendImage(from, getWiki.picUrl, `${t}_${sender.id}.jpg`, getWiki.caption, id);
+          }
+          break;
+        } catch (err){
+          console.log(err)
+          return await client.reply(from, `_⚠️ *${arguments.join(' ')}* pada Wikipedia tidak ditemukan_`, id, true);
+        }
+      
+      case 'imagequote':
+        const getImagequote = await _function.imgquote();
+        await client.sendImage(from, getImagequote, `${t}_${sender.id}.jpg`, '', id);
+        break;
 
       case 'loginvr':
         const vr = "Login vr dong \n yasman @6281285600258 \n hadid @6281329989383 \n junas @628978113198 \n barra @6281388088047 \n sean @6283818448972 \n ari @6281299115053 \n dito @6285155277438 \n murise @6281511529199";
@@ -507,6 +613,7 @@ Hadid @6281329989383`;
           await client.reply(from, ind.wait(), id, true)
           const encryptMedia = isQuotedImage ? quotedMsgId : id
           const mediaData = await client.downloadMedia(encryptMedia)
+          //const buff = Buffer.from(mediaData, "base64");
           try {
               const imageLink = await uploadImages(mediaData, `sauce.${sender.id}`)
               console.log('Searching for source...')
@@ -537,29 +644,28 @@ Hadid @6281329989383`;
         if (isMedia && isImage || isQuotedImage){
           await client.reply(from, ind.wait(), id, true)
           const encryptMedia = isQuotedImage ? quotedMsgId : id
-          //const _mimetype = isQuotedImage ? quotedMsg.mimetype : mimetype
           const mediaData = await client.downloadMedia(encryptMedia)
-          //const mediatostr = mediaData.toString('base64')
-          //const imageBase64 = `data:${_mimetype};base64,${mediatostr}`
           const imageLink = await uploadImages(mediaData, `wait.${sender.id}`)
           _function.weeaboo.wait(imageLink)
             .then(async (result) => {
               if (result.result && result.result.length <= 2) {
                 return await client.reply(from, 'Anime not found! :(', id, true)
               } else {
+                console.log(result)
                 const {native, romaji, english} = result.result[0].anilist.title
                 const { episode, similarity, video} = result.result[0]
                 let teks = ''
                 console.log(imageLink)
                 teks += `*Anime Result*\n\n`
                 console.log('Anime found, please wait')
+                await _function.misc.downloadFile(video, `./media/wait.${sender.id}.mp4`)
                 if (similarity < 0.85) {
                   teks += `*Title*: ${native}\n*Romaji*: ${romaji}\n*English*: ${english}\n*Episode*: ${episode}\n*Similarity*: ${(similarity * 100).toFixed(1)}%\nLow similiarity!. \n\nHasil merupakan asal tebak saja.`
                   client.reply(from, teks, id, true)
                 } else {
                   teks += `*Title*: ${native}\n*Romaji*: ${romaji}\n*English*: ${english}\n*Episode*: ${episode}\n*Similarity*: ${(similarity * 100).toFixed(1)}%`
                   try {
-                    await client.sendFile(from, video, `result.mp4`, null, id)
+                    await client.sendFile(from,`./media/wait.${sender.id}.mp4`, `wait.${sender.id}.mp4`)
                     await client.reply(from, teks, id, true)
                       .then(() => console.log('Success sending anime source!'))
                   } catch (error) {

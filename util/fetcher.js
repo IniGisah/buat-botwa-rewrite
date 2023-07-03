@@ -6,6 +6,20 @@ const { fromBuffer } = require('file-type')
 const resizeImage = require('./imageProcessing')
 //const { media } = require('wikipedia/dist/page')
 
+function decodeBase64Image(dataString) {
+    var matches = dataString.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/),
+      response = {};
+  
+    if (matches.length !== 3) {
+      return new Error('Invalid input string');
+    }
+  
+    response.type = matches[1];
+    response.data = new Buffer(matches[2], 'base64');
+  
+    return response;
+  }
+
 /**
  *Fetch Json from Url
  *
@@ -66,20 +80,24 @@ const fetchBase64 = (url, mimetype) => {
 
 /**
  * Upload images to telegra.ph server.
- * @param {Buffer} buffData 
+ * @param {string} buffData 
  * @param {string} fileName
  * @returns {Promise<string>}
+ *  { encoding: 'base64' }
  */
 const uploadImages = (buffData, fileName) => {
     return new Promise(async (resolve, reject) => {
-        const { ext } = await fileType.fromBuffer(buffData)
-        const filePath = `media/${fileName}.${ext}`
-        fs.writeFile(filePath, buffData, { encoding: 'base64' }, (err) => {
+        let extension = buffData.split(';')[0].split('/')[1]
+        //const result = await fileType.fromBuffer(buffData)
+        //console.log(result)
+        var imageBuffer = decodeBase64Image(buffData);
+        const filePath = `media/${fileName}.${extension}`
+        fs.writeFile(filePath, imageBuffer.data, (err) => {
             if (err) reject(err)
             console.log('Uploading image to telegra.ph server...')
             const fileData = fs.readFileSync(filePath)
             const form = new FormData()
-            form.append('file', fileData, `${fileName}.${ext}`)
+            form.append('file', fileData, `${fileName}.${extension}`)
             fetch('https://telegra.ph/upload', {
                 method: 'POST',
                 body: form
