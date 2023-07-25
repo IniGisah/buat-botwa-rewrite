@@ -2,13 +2,18 @@
   "dependencies": {
     "@vitalets/google-translate-api": "^9.2.0",
     "@wppconnect-team/wppconnect": "^1.27.2",
+    "bing-translate-api": "^2.9.1",
     "brainly-scraper": "^1.0.3",
+    "deepl-node": "^1.10.2",
+    "googlethis": "^1.7.1",
     "moment": "^2.29.4",
     "moment-timezone": "^0.5.43",
     "momment": "^0.0.1",
     "needle": "^3.2.0",
     "sagiri": "^3.4.0",
     "wikijs": "^6.4.1",
+    "wink-eng-lite-web-model": "^1.5.0",
+    "wink-nlp": "^1.14.3",
     "youtubei": "^1.1.2"
   }
 }

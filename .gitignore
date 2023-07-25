@@ -1,3 +1,6 @@
 session/
 node_modules/
 tokens
+
+media/*
+!media/.gitkeep

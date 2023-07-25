@@ -2,7 +2,8 @@ const moment = require('moment');
 const set = require('../settings');
 const fs = require('fs-extra')
 const config = require('../config.json')
-//const axios = require("axios").default;
+const axios = require("axios").default;
+const { translate } = require('bing-translate-api');
 //const Nekos = require('nekos.life');
 //const neko = new Nekos();
 const sagiri = require('sagiri');
@@ -15,10 +16,12 @@ momentt.tz.setDefault('Asia/Jakarta').locale('id')
 //const tanggal = momentt.tz('Asia/Jakarta').format('DD-MM-YYYY')
 //const uaOverride = config.uaOverride
 //const { closestMatch } = require("closest-match");
-//const google = require('googlethis');
+const google = require('googlethis');
 //const genshindb = require('genshin-db');
 //const { getChart } = require('billboard-top-100');
 //const { exec } = require("child_process");
+const winkNLP = require( 'wink-nlp' );
+const model = require( 'wink-eng-lite-web-model' );
 
 const errorImg = 'https://i.ibb.co/jRCpLfn/user.png'
 
@@ -39,6 +42,7 @@ const daftarlist = [];
 var disablecommand = true;
 
 const handler = require ('../handler');
+//const { translate } = require('@vitalets/google-translate-api');
 //const { query } = require('express');
 //const { count } = require('console');
 
@@ -75,11 +79,12 @@ function ngelisttugas(){
 }
 
 module.exports = async (client, message) => {
-  const {from} = message;
+  const {from, body, sender} = message;
+  const { formattedTitle, isGroup, contact, groupMetadata } = await client.getChatById(from);
   try {
     const { id, body, mimetype, type, t, from, sender, content, caption, author, quotedMsg, quotedMsgId, isGroupMsg, isMedia, quotedMsgObj, mentionedJidList } = message;
     const { pushname, formattedName } = sender;
-    const { formattedTitle, isGroup, contact, groupMetadata } = await client.getChatById(from);
+    
 
     const { ind } = require('../message/text/lang/')
 
@@ -127,7 +132,8 @@ module.exports = async (client, message) => {
     console.debug(color('green', '➜'), color('yellow', isGroup ? '[GROUP]' : '[PERSONAL]'), `${botPrefix}${command} | ${sender.id} ${isGroup ? 'FROM ' + groupMetadata.subject : ''}`, color('yellow', moment().format()));
 
     //const allChats = await client.getAllChats();
-    switch (command) {
+    let commandlower = command.toLowerCase()
+    switch (commandlower) {
       case 'commandswitch':
         if (!botOwner.includes(sender.id)) return await client.reply(from, ind.ownerOnly(), id, true)
         if (disablecommand){
@@ -165,10 +171,46 @@ module.exports = async (client, message) => {
         console.log(all)
         break
 
+      case 'menu':
+      case 'help':
+        await client.reply(from, `Maaf, bot ini sedang dalam pengkodingan ulang dikarenakan matinya aplikasi yang mendasarkan bot ini. Fitur yang ada pada list ini belum semuanya dikembalikan. Secara perlahan fitur akan dikembalikan\n\n\nJika ada fitur yang ingin digunakan namun belum ada, silahkan hubungi owner dengan perintah ${botPrefix}owner. Terima kasih`, id, true)
+        await client.sendText(from, _txt.menu.join(''));
+      break;
+
+      case 'info':
+        return await client.reply(from, _txt.info, id, true);
+
+      case 'source':
+        return await client.reply(from, _txt.source, id, true);
+
+      case 'rules':
+        return await client.reply(from, _txt.rules, id, true);
+        break;
+
+      case 'faq':
+        return await client.reply(from, _txt.faq, id, true);
+        break;
+
+      case 'donate':
+      case 'donasi':
+        return await client.reply(from, _txt.donate, id, true);
+        break;
+
+      case 'extract':
+        if (!isQuotedImage) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : reply sebuah gambar view once yang ingin diekstrak_`, id, true);
+        const mediaDataExtract = isQuotedImage ? quotedMsgId : id
+        await client.sendImageFromBase64(from, await client.downloadMedia(mediaDataExtract));
+        //const mediaData4 = await decryptMedia(quotedMsg);
+        //const imageBase64_4 = `data:${quotedMsg.mimetype};base64,${mediaData4.toString(
+        //  'base64'
+        //)}`;
+        //await client.sendImage(from, imageBase64_4, 'extract.jpg', null, id)
+		  break;
+
       case 'owner':
       case 'contact':
       case 'ownerbot':
-        return await client.reply(from, '👋 Hai, kalo mau req fitur bisa pc ke *https://wa.me/6285156132721*', id, true);
+        return await client.reply(from, '👋 Hai, kalo mau lapor atau req fitur bisa pc ke *https://wa.me/6285156132721*', id, true);
         break;
 
       case 'jodohku':
@@ -210,6 +252,60 @@ module.exports = async (client, message) => {
         await client.sendImageAsSticker(from, await client.downloadMedia(mediaData));
         break;
 
+      case 'stickertottext':
+      case 'stickerteks':
+      case 'stikerteks':
+        let teksLink
+        if (arguments.length < 1 && !quotedMsg) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}stikerteks <kalimat>_`, id, true);
+        if (quotedMsg) {
+          let quotmsg = await client.getMessageById(quotedMsgId)
+          let teks = quotmsg.content.trim().split(' ');
+          teks.push(`-${quotmsg.sender.pushname}`)
+          teksLink = _function.tosticker(teks);
+        } else {
+          teksLink = _function.tosticker(arguments);
+        }
+        await client.sendImageAsSticker(from, teksLink);
+        break
+
+      case 'analisis':
+      case 'sentiment':
+        if (arguments.length < 1 && !quotedMsg) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}analisis <kalimat>, atau reply pesan yang ingin di analisis._`, id);
+        if (isImage || isVideo || isQuotedImage || isQuotedVideo) {
+          return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}analisis <kalimat>, atau reply pesan yang ingin di analisis._`, id)
+        }
+        const nlp = winkNLP( model );
+        const its = nlp.its;
+        let teksanalisis = ''
+        if (quotedMsg){
+          let quotmsg2 = await client.getMessageById(quotedMsgId)
+          teksanalisis = quotmsg2.content.trim().split(' ');
+        } else {
+          teksanalisis = arguments.join(' ')
+        }
+        console.log(`translate "${teksanalisis}" to eng`)
+        let hasil = await translate(teksanalisis, null, 'en')
+        const doc = nlp.readDoc(hasil.translation);
+        let hasilraw = doc.out(its.sentiment)
+        let hasilanalisis
+        if (hasilraw >= -1 && hasilraw < 0){
+          hasilanalisis = "Negatif"
+        } else if (hasilraw == 0){
+          hasilanalisis = "Netral"
+        } else if (hasilraw > 0 && hasilraw <= 1){
+          hasilanalisis = "Positif"
+        } else {
+          return await client.reply(from, "Sentiment error!", id)
+        }
+
+        await client.reply(from, `*Hasil analisis*
+Teks : ${teksanalisis}
+Translate : ${hasil.translation}
+Nilai hasil : ${hasilraw}
+Sentiment : *${hasilanalisis}*`, id)
+        break
+
+
       case 'voice':
         if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah: ${botPrefix}voice <kode> <kalimat>_\n_atau ${botPrefix}voice help`, id, true);
         if (arguments[0] === "help") return await client.reply(from, `_Daftar bahasa voice, true_
@@ -233,6 +329,110 @@ english: "en"
         await client.sendPtt(from, encodeurl, id);
         break;
 
+      case 'quran':
+      case 'quranayat':
+        try {
+          if (arguments.length != 2) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}quranayat <surah> <ayat>_`, id, true);
+          const ayah = await _function.quran.ayat(arguments);
+          await client.reply(from, ayah, id, true);
+        } catch (error) {
+          await client.reply(from, `Ayat Surat Al-Quran tidak ditemukan!`, id, true);
+        }
+        break;
+
+      case 'quransurah':
+        try {
+          if (arguments.length != 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}quransurah <surah>_`, true);
+          const surah = await _function.quran.surah(arguments);
+          await client.reply(from, surah, id, true);
+        } catch (error) {
+          await client.reply(from, `Ayat Surat Al-Quran tidak ditemukan!`, id, true);
+        }
+        break;
+
+      case 'murotal':
+      case 'murrotal':
+      case 'murottal':
+        try {
+        if (arguments.length != 2) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}murrotal <ayat> <surat>_`, id, true);
+        const murottalAudio = await _function.quran.murottal(arguments);
+        await client.sendPtt(from, murottalAudio, id);
+        } catch (error) {
+          await client.reply(from, `Ayat Surat Al-Quran tidak ditemukan!`, id, true);
+        }
+        break;
+
+      case 'tafsir':
+        if (arguments.length != 2) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}tafsir <ayat> <surat>_`, id, true);
+        const tafsir = await _function.quran.tafsir(arguments);
+        await client.reply(from, tafsir, id, true);
+        break;
+
+      case 'jadwalsholat':
+      case 'jadwalsolat':
+            if (!q) return await client.reply(from, ind.wrongFormat(), id, true)
+            await client.reply(from, ind.wait(), id, true)
+            _function.misc.jadwalSholat(q)
+                .then((data) => {
+                    data.map(async ({isya, subuh, dzuhur, ashar, maghrib, terbit}) => {
+                        const x = subuh.split(':')
+                        const y = terbit.split(':')
+                        const xy = x[0] - y[0]
+                        const yx = x[1] - y[1]
+                        const perbandingan = `${xy < 0 ? Math.abs(xy) : xy} jam ${yx < 0 ? Math.abs(yx) : yx} menit`
+                        const msg = `Jadwal sholat untuk ${q} dan sekitarnya ( *${tanggal}* )\n\nDzuhur: ${dzuhur}\nAshar: ${ashar}\nMaghrib: ${maghrib}\nIsya: ${isya}\nSubuh: ${subuh}\n\nDiperkirakan matahari akan terbit pada pukul ${terbit} dengan jeda dari subuh sekitar ${perbandingan}`
+                        await client.reply(from, msg, id, true)
+                        console.log('Success sending jadwal sholat!')
+                    })
+                })
+                .catch(async (err) => {
+                    console.error(err)
+                    await client.reply(from, 'Kota tidak ditemukan!', id, true)
+                })
+        break
+
+      case 'hadis': // irham01
+      case 'hadees':
+          if (arguments.length <= 1) return await client.reply(from, ind.hadis(), id, true)
+          await client.reply(from, ind.wait(), id, true)
+          console.log('argumen 1 : ' + arguments[0]+ ' argumen 2 : ' + arguments[1])
+          try {
+              if (arguments[0] === 'darimi') {
+                  const hdar = await axios.get(`https://api.hadith.gading.dev/books/darimi/${arguments[1]}`)
+                  await client.sendText(from, `${hdar.data.data.contents.arab}\n${hdar.data.data.contents.id}\n\n*H.R. Darimi*`, id)
+              } else if (arguments[0] === 'ahmad') {
+                  const hmad = await axios.get(`https://api.hadith.gading.dev/books/ahmad/${arguments[1]}`)
+                  await client.sendText(from, `${hmad.data.data.contents.arab}\n${hmad.data.data.contents.id}\n\n*H.R. Ahmad*`, id)
+              } else if (arguments[0] === 'bukhari') {
+                  const hbukh = await axios.get(`https://api.hadith.gading.dev/books/bukhari/${arguments[1]}`)
+                  await client.sendText(from, `${hbukh.data.data.contents.arab}\n${hbukh.data.data.contents.id}\n\n*H.R. Bukhori*`, id)
+              } else if (arguments[0] === 'muslim') {
+                  const hmus = await axios.get(`https://api.hadith.gading.dev/books/muslim/${arguments[1]}`)
+                  await client.sendText(from, `${hmus.data.data.contents.arab}\n${hmus.data.data.contents.id}\n\n*H.R. Muslim*`, id)
+              } else if (arguments[0] === 'malik') {
+                  const hmal = await axios.get(`https://api.hadith.gading.dev/books/malik/${arguments[1]}`)
+                  await client.sendText(from, `${hmal.data.data.contents.arab}\n${hmal.data.data.contents.id}\n\n*H.R. Malik*`, id)
+              } else if (arguments[0] === 'nasai') {
+                  const hnas = await axios.get(`https://api.hadith.gading.dev/books/nasai/${arguments[1]}`)
+                  await client.sendText(from, `${hnas.data.data.contents.arab}\n${hnas.data.data.contents.id}\n\n*H.R. Nasa'i*`, id)
+              } else if (arguments[0] === 'tirmidzi') {
+                  const htir = await axios.get(`https://api.hadith.gading.dev/books/tirmidzi/${arguments[1]}`)
+                  await client.sendText(from, `${htir.data.data.contents.arab}\n${htir.data.data.contents.id}\n\n*H.R. Tirmidzi*`, id)
+              } else if (arguments[0] === 'ibnumajah') {
+                  const hibn = await axios.get(`https://api.hadith.gading.dev/books/ibnu-majah/${arguments[1]}`)
+                  await client.sendText(from, `${hibn.data.data.contents.arab}\n${hibn.data.data.contents.id}\n\n*H.R. Ibnu Majah*`, id)
+              } else if (arguments[0] === 'abudaud') {
+                  const habud = await axios.get(`https://api.hadith.gading.dev/books/abu-daud/${arguments[1]}`)
+                  await client.sendText(from, `${habud.data.data.contents.arab}\n${habud.data.data.contents.id}\n\n*H.R. Abu Daud*`, id)
+              } else {
+                  await client.sendText(from, ind.hadis(), id)
+              }
+          } catch (err) {
+              console.error(err)
+              await client.reply(from, 'Error!', id, true)
+          }
+      break
+
       case 'p':
       case 'spam':
         if (!isGroup) return await client.reply(from, '_⛔ Perintah ini hanya dapat di-gunakan didalam grup!_', id, true);
@@ -249,6 +449,23 @@ english: "en"
         await client.reply(from, `_👬🏻 Tingkat gay *${arguments.join(' ')}* sebesar ${gayPercentage}%_`, id, true);
         break;
 
+      case 'gila':
+        if (mentionedJidList.length > 0 || arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah: ${botPrefix}gila <nama>_`, id, true);
+        const gilaPercentage = Math.floor(Math.random() * 100);
+        await client.reply(from, `_👬🏻 Tingkat gila *${arguments.join(' ')}* sebesar ${gilaPercentage}%_`, id, true);
+        break;
+
+      case 'brainly':
+        if (arguments.length < 1) return client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}brainly <pertanyaan>_`, id, true);
+        const getBrainly = await _function.brainly(arguments.join(' '));
+        await client.reply(from, getBrainly, id, true);
+        break;
+
+      case 'bucin':
+        const katabucin = await _function.bucin();
+        await client.reply(from, katabucin, id, true);
+        break;
+
       case 'jodoh':
         if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah: ${botPrefix}jodoh <nama kamu>&<nama seseorang>_`, true);
         const jodohSplit = arguments.join(' ').split('&');
@@ -262,6 +479,20 @@ english: "en"
         const getAnime = await _function.animesearch(arguments.join(' '));
         if (!getAnime) return await client.reply(from, `_*Error!*_\nAnime tidak ditemukan `, id, true)
         await client.sendImage(from, getAnime.picUrl, `${t}_${sender.id}.jpg`, getAnime.caption, id);
+        break;
+
+      case 'lyrics':
+      case 'lirik':
+        if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}lirik <judul lagu>_`, id, true);
+        const getLyrics = await _function.lirik(arguments.join(' '));
+        if (!getLyrics) return await client.reply(from, `_🥺 Lirik *${arguments.join(' ')}* Tidak Ditemukan!_`, id, true);
+        await client.reply(from, getLyrics, id, true);
+        break;
+
+      case 'short':
+        if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}short <url/link yang ingin di perkecil>_`, id, true);
+        const getShortener = await _function.short(arguments[0]);
+        await client.reply(from, `${getShortener}`, id, true);
         break;
 
       case 'google':
@@ -409,23 +640,6 @@ english: "en"
           console.log(error.stack);
         }
         break;
-      
-
-      case 'stickertottext':
-      case 'stickerteks':
-      case 'stikerteks':
-        let teksLink
-        if (arguments.length < 1 && !quotedMsg) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}stikerteks <kalimat>_`, id, true);
-        if (quotedMsg) {
-          let quotmsg = await client.getMessageById(quotedMsgId)
-          let teks = quotmsg.content.trim().split(' ');
-          teks.push(`-${quotmsg.sender.pushname}`)
-          teksLink = _function.tosticker(teks);
-        } else {
-          teksLink = _function.tosticker(arguments);
-        }
-        await client.sendImageAsSticker(from, teksLink);
-        break
 
       case 'wikipedia':
       case 'wiki':
@@ -446,6 +660,25 @@ english: "en"
       case 'imagequote':
         const getImagequote = await _function.imgquote();
         await client.sendImage(from, getImagequote, `${t}_${sender.id}.jpg`, '', id);
+        break;
+
+      case 'roll':
+        const rollNumber = Math.floor(Math.random() * (6 - 1) + 1);
+        await client.sendImageAsSticker(from, `https://www.random.org/dice/dice${rollNumber}.png`);
+        break;
+
+      case 'weather':
+      case 'cuaca':
+        if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}cuaca <nama kota>_`, id, true);
+        const getWeather = await _function.weather(arguments.join(' '));
+        await client.reply(from, getWeather, id, true);
+        break;
+
+      case 'movie':
+        if (arguments.length < 1) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : ${botPrefix}movie <judul>_`, id, true);
+        const getMovie = await _function.movie(arguments.join(' '));
+        if (!getMovie) return await client.reply(from, `_⚠️ ${arguments.join(' ')} Tidak ditemukan!_`, id, true);
+        await client.sendImage(from, getMovie.moviePicture, `${t}_${sender.id}.jpeg`, getMovie.movieCaption, id);
         break;
 
       case 'loginvr':
@@ -551,6 +784,121 @@ Nopal @6289638065793
 ari @6281299115053
 Hadid @6281329989383`;
         await client.sendMentioned(from, l4d2);
+        break;
+
+      case 'halo':
+        await client.sendPtt(from, './mediapreload/haloo.mp3', "halo.mp3", "Haloo", null, null, true);
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/StZTdND/haloo.png');
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/PNCvDNJ/halo2.jpg');
+        break;
+
+      case 'asep':
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/2yytWMt/asep1.png');
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/Nt1qc67/asep2.png');
+        break;
+
+      case 'tabah':
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/Xy5YQ9H/tabah1.jpg');
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/yS2zpFt/tabah2.jpg');
+        break;
+
+      case 'lutelat':
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/Y2mnHhm/lotelat.jpg');
+        await client.sendPtt(from, './mediapreload/telat.mp3', "telat.mp3", "telaat", null, null, true);
+        break;
+
+      case 'bayu':
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/pK5Qs4J/bayu1.jpg');
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/kDfVq4h/bayu2.jpg');
+        break;
+
+      case 'payoy':
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/cxNvqz7/payoy.jpg');
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/cxNvqz7/payoy.jpg');
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/r6phywr/payoy2.jpg');
+        break;
+
+      case 'teja':
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/M5gfvfQ/teja1.jpg');
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/VSn3d8k/teja2.png');
+        break;
+      
+      case 'indihome':
+        await client.sendPtt(from, './mediapreload/indihome.mp3', "halo.mp3", "Haloo", null, null, true);
+        await client.sendImageAsSticker(from, 'https://i.ibb.co/k8xwK8s/image.png');
+        break;
+
+      case 'palpale':
+        await client.sendPtt(from, './mediapreload/pale.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'yamete':
+        await client.sendPtt(from, './mediapreload/masukin.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+      
+      case 'papepap':
+        await client.sendPtt(from, './mediapreload/pap.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'prank':
+        await client.sendPtt(from, './mediapreload/prank.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'goblok':
+        await client.sendPtt(from, './mediapreload/goblok.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'anjing':
+        await client.sendPtt(from, './mediapreload/anjing.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'cangkul':
+        await client.sendPtt(from, './mediapreload/cangkul.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+      
+      case 'otak':
+        await client.sendPtt(from, './mediapreload/otak.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'bangsat':
+        await client.sendPtt(from, './mediapreload/bangsat.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+      
+      case 'sange':
+        await client.sendPtt(from, './mediapreload/sange.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'failed':
+        await client.sendPtt(from, './mediapreload/failed.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'demituhan':
+        await client.sendPtt(from, './mediapreload/demituhan.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+      
+      case 'asede':
+      case 'asade':
+        await client.sendPtt(from, './mediapreload/asade.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'wikawika':
+        await client.sendPtt(from, './mediapreload/wikawika.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+
+      case 'panikga':
+        await client.sendPtt(from, './mediapreload/panikga.mp3', "halo.mp3", "Haloo", null, null, true);
+        break;
+      
+      case 'yntkts':
+      case 'ygtkts':
+      case 'yntkns':
+        await client.sendPtt(from, './mediapreload/yntkts.mp3', 'yntkts.mp3', 'yntkts', null, null, true);
+        break;
+
+      case 'assalamualaikum':
+      case 'asalamualaikum':
+      case 'salam':
+        await client.sendPtt(from, './mediapreload/salam.mp3', "halo.mp3", "Haloo", null, null, true);
         break;
 
       case 'waifu':
@@ -685,14 +1033,18 @@ Hadid @6281329989383`;
 
       default:
         //let matching = closestMatch(command, _txt.menulist);
-        client.reply(from, `Maaf, bot ini sedang dalam pengkodingan ulang dikarenakan matinya aplikasi yang mendasarkan bot ini. Kemungkinan command atau perintah yang anda masukkan belum atau tidak ditemukan \n\nSecara perlahan fitur akan dikembalikan. Terima kasih`, id, true)
+        await client.reply(from, `Maaf, bot ini sedang dalam pengkodingan ulang dikarenakan matinya aplikasi yang mendasarkan bot ini. Kemungkinan command atau perintah yang anda masukkan belum atau tidak ditemukan \n\nSecara perlahan fitur akan dikembalikan. Terima kasih`, id, true)
         return console.debug(color('red', '➜'), color('yellow', isGroup ? '[GROUP]' : '[PERSONAL]'), `${botPrefix}${command} | ${sender.id} ${isGroup ? 'FROM ' + groupMetadata.subject : ''}`, color('yellow', moment().format()));
     }
 
     return;
   } catch (err) {
-    //client.sendText(from, 'Syid, Client error!\n\nTolong hubungi owner beserta error log')
-    //client.sendText(from, `error log\n\n${err}`)
+    const botPrefix = set.prefix;
+    await client.sendText(from, 'Waduh ada error!\n\nOwner telah diberitahu, mohon maaf atas errornya 🙏')
+    await client.sendText("6285156132721@c.us", `Last message : ${body}\nFrom : ${from}\nIsGroup? : ${isGroup}\n${isGroup ? 'From : ' + groupMetadata.subject : ''}`)
+    //console.debug(color('green', '➜'), color('yellow', isGroup ? '[GROUP]' : '[PERSONAL]'), `${botPrefix}${command} | ${sender.id} ${isGroup ? 'FROM ' + groupMetadata.subject : ''}`, color('yellow', moment().format()));
+    //await client.sendText("6285156132721@c.us", 'Client error!\n\nTolong hubungi owner beserta error log')
+    await client.sendText("6285156132721@c.us", `error log\n\n${err}`)
     console.log(err);
     //gptwait = false;
   }
