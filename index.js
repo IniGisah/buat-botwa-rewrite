@@ -1,5 +1,12 @@
 const wppconnect = require('@wppconnect-team/wppconnect');
 const Handler = require("./handler");
+const express = require('express');
+const bodyParser = require('body-parser');
+
+const app = express();
+const PORT = process.env.PORT || 6543;
+
+app.use(bodyParser.json());
 
 wppconnect.defaultLogger.level = 'http', 'info';
 
@@ -20,4 +27,13 @@ function start(client) {
   client.onMessage((message) => {
     Handler.messageHandler(client, message);
   });
+
+  app.post('/webhook', (req, res) => {
+    console.log('Received webhook:', req.body);
+    res.sendStatus(200);
+});
 }
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
