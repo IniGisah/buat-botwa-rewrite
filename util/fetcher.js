@@ -2,7 +2,6 @@ const fetch = require('node-fetch')
 const FormData = require('form-data')
 const fs = require('fs')
 const fileType = require('file-type')
-const { fromBuffer } = require('file-type')
 const resizeImage = require('./imageProcessing')
 //const { media } = require('wikipedia/dist/page')
 
