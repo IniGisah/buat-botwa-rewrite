@@ -257,6 +257,7 @@ module.exports = async (client, message) => {
         break;
 
       case 'extract':
+        if (sender.id != "6285156132721@c.us" ) return await client.reply(from, "_Maaf untuk sementara fitur extract dimatikan guna menjaga privasi pengguna_", id, true)
         if (!isImage && !isQuotedImage) return await client.reply(from, `_⚠️ Contoh Penggunaan Perintah : reply sebuah gambar view once yang ingin diekstrak_`, id, true);
         const mediaDataExtract = isQuotedImage ? quotedMsgId : id
         await client.sendImageFromBase64(from, await client.downloadMedia(mediaDataExtract), `extract_${id}.jpg`);
@@ -1481,7 +1482,7 @@ Hadid @6281329989383`;
         break
 
       case 'listtest':
-        if (!botOwner.includes(sender.id)) return await client.reply(from, ind.ownerOnly(), id, true);
+        //if (!botOwner.includes(sender.id)) return await client.reply(from, ind.ownerOnly(), id, true);
         if (isGroup) return await client.reply(from, '_⛔ Perintah ini hanya dapat di-gunakan pada chat pribadi saja!_', id, true);
         await client.sendListMessage(from, {
           buttonText: 'Click here',
@@ -1510,17 +1511,17 @@ Hadid @6281329989383`;
         await client.sendText(from, 'WPPConnect message with buttons', {
           buttons: [
             {
-              url: 'https://wppconnect.io/',
-              text: 'WPPConnect Site'
-            },
-            {
-              phoneNumber: '+55 11 22334455',
-              text: 'Call me'
-            },
-            {
               id: 'your custom id 1',
               text: 'Some text'
             },
+            {
+              id: 'another id 2',
+              text: 'Another text'
+            },
+            {
+              id: 'your custom id 3',
+              text: 'Some text'
+            }
           ]
        });
        break;
